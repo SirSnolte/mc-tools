@@ -1,30 +1,41 @@
 # mc-werkzeuge
 
+Small tools for running a Minecraft network on a Velocity proxy.
+
 ## plugin-vertraeglichkeit.py
 
-Prüft, ob ein Plugin-Jar Methoden aufruft, die der Proxy gar nicht mitbringt —
-ohne das Plugin auszuführen. Fängt genau die Fehlerklasse, an der LibreLogin
-0.24.0 auf Velocity 4.2 stirbt (`NoSuchMethodError` auf `Title$Times.of`),
-und zwar vor dem Neustart statt danach.
+Checks whether a plugin jar calls methods that the proxy does not provide, without running the
+plugin. It catches `NoSuchMethodError` crashes before a restart instead of after it: for example
+LibreLogin 0.24.0, which dies on Velocity 4.2 because `Title$Times.of` no longer exists in
+Adventure 5.
 
-Aufruf:
+It reads the plugin's bytecode with `javap`, collects every call into `net/kyori/` (Adventure)
+and `com/velocitypowered/` (Velocity API), and looks each one up in the proxy's own classes,
+including inherited methods.
 
-    # 1. Klassen des Proxys auspacken (das ist die echte Laufzeitumgebung)
+### Requirements
+
+- Python 3.8 or newer, no extra packages
+- `javap` from a JDK (a JRE alone does not ship it)
+
+### Usage
+
+    # 1. Extract the proxy's classes: this is the real runtime the plugin will see
     unzip -q velocity-4.2.0-30.jar 'net/kyori/*' 'com/velocitypowered/*' -d proxy
 
-    # 2. Plugin dagegen prüfen
-    python3 -I plugin-vertraeglichkeit.py /pfad/zu/javap proxy plugin.jar
+    # 2. Check the plugin against them
+    python3 plugin-vertraeglichkeit.py /path/to/jdk/bin/javap proxy plugin.jar
 
-Braucht `javap` aus einem JDK. Auf diesem Rechner ist `/usr/lib/jvm/java-25-openjdk`
-nur eine JRE; das JDK von PrismLauncher funktioniert.
+The report lists missing classes and missing methods. The exit code is `0` when nothing is
+missing and `1` otherwise, so the check can gate a deployment script.
 
-### Grenzen
+### Limits
 
-- Prüft nur, ob Methoden **existieren** — nicht, ob sie sich verhalten wie erwartet.
-- Annotationen, Reflection und Dinge, die erst zur Laufzeit nachgeladen werden,
-  sieht es nicht. Annotationsfelder (z. B. `@Subscribe(priority=…)`) muss man
-  gesondert mit `javap -p` am Proxy nachsehen.
-- `toString()` und andere von `java.lang.Object` geerbte Methoden werden als
-  fehlend gemeldet — Fehlalarm, bewusst so.
-- Fehlende Klassen für andere Plattformen (BungeeCord in einem Multiplattform-Jar)
-  sind normal, solange sie auf dem Proxy nie geladen werden.
+- It only checks that methods **exist**, not that they behave the same.
+- Annotations, reflection and anything loaded at runtime are not seen. Check annotation
+  fields such as `@Subscribe(priority=…)` separately with `javap -p` against the proxy.
+- Methods inherited from `java.lang.Object` (`equals`, `hashCode`, `toString`) and some
+  builder methods inherited through generic interfaces are reported as missing. These are
+  known false positives.
+- Missing classes for other platforms (BungeeCord in a multi-platform jar) are expected as
+  long as the proxy never loads them.
