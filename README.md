@@ -1,8 +1,8 @@
-# mc-werkzeuge
+# mc-tools
 
 Small tools for running a Minecraft network on a Velocity proxy.
 
-## plugin-vertraeglichkeit.py
+## plugin-compat-check.py
 
 Checks whether a plugin jar calls methods that the proxy does not provide, without running the
 plugin. It catches `NoSuchMethodError` crashes before a restart instead of after it: for example
@@ -24,7 +24,7 @@ including inherited methods.
     unzip -q velocity-4.2.0-30.jar 'net/kyori/*' 'com/velocitypowered/*' -d proxy
 
     # 2. Check the plugin against them
-    python3 plugin-vertraeglichkeit.py /path/to/jdk/bin/javap proxy plugin.jar
+    python3 plugin-compat-check.py /path/to/jdk/bin/javap proxy plugin.jar
 
 The report lists missing classes and missing methods. The exit code is `0` when nothing is
 missing and `1` otherwise, so the check can gate a deployment script.
